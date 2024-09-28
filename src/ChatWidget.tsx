@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback  } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ReactComponent as MessageCircleIcon } from './assets/message-circle.svg';
 import { ReactComponent as XIcon } from './assets/x.svg';
+import { ReactComponent as XWhite } from './assets/xwhite.svg';
 import { ReactComponent as Maximize } from './assets/maximize-2.svg';
 import { ReactComponent as Minimize } from './assets/minimize-2.svg';
 import { ReactComponent as Sidebar } from './assets/sidebar.svg';
@@ -14,6 +15,7 @@ import { ReactComponent as RefreshIcon } from './assets/refresh-cw.svg';
 import { ReactComponent as ChevronIcon } from './assets/down.svg';
 import { ReactComponent as EditIcon } from './assets/edit.svg';
 import { ReactComponent as TrashIcon } from './assets/trash-2.svg';
+import { ReactComponent as Check } from './assets/check.svg';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -44,7 +46,8 @@ import {
     Tooltip,
     HoverActionsContainer,
     PromptContainer,
-    PromptButton
+    PromptButton,
+    EditInput
   } from './StyledComponents';
 
   interface Message {
@@ -64,6 +67,8 @@ const ChatWidget: React.FC = () => {
   const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
   const [currentPrompts, setCurrentPrompts] = useState<string[]>(['Tell a Joke', 'Ask a Riddle']);
   const [lastAssistantMessageId, setLastAssistantMessageId] = useState<number | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+  const [editedContent, setEditedContent] = useState('');
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
@@ -168,7 +173,7 @@ const ChatWidget: React.FC = () => {
 
   const handlePromptClick = (prompt: string) => {
     sendMessage(prompt);
-    setCurrentPrompts([]); // Clear prompts after selection
+    setCurrentPrompts([]);
   };
 
   const deleteMessage = (messageId: number) => {
@@ -176,7 +181,7 @@ const ChatWidget: React.FC = () => {
       const indexToDelete = prevMessages.findIndex(msg => msg.id === messageId);
       if (indexToDelete === -1) return prevMessages;
   
-      // Remove the user message and the following assistant message (if it exists)
+      // Remove the user message and the following assistant message
       const newMessages = [...prevMessages];
       newMessages.splice(indexToDelete, indexToDelete + 1 < newMessages.length ? 2 : 1);
       return newMessages;
@@ -195,6 +200,62 @@ const ChatWidget: React.FC = () => {
     setMessages([]);
     fetchInitialMessage();
   };
+
+  //edit message functions
+  const handleEditClick = (messageId: number, content: string) => {
+    setEditingMessageId(messageId);
+    setEditedContent(content);
+  };
+
+  const handleEditCancel = () => {
+    setEditingMessageId(null);
+    setEditedContent('');
+  };
+
+  const handleEditSave = async () => {
+    if (!editingMessageId) return;
+
+    const updatedMessages = messages.map(msg =>
+      msg.id === editingMessageId ? { ...msg, content: editedContent } : msg
+    );
+
+    setMessages(updatedMessages);
+    setEditingMessageId(null);
+
+    // Find the index of the edited message
+    const editedIndex = updatedMessages.findIndex(msg => msg.id === editingMessageId);
+    if (editedIndex === -1 || editedIndex === updatedMessages.length - 1) return;
+
+    const messagesToResend = updatedMessages.slice(editedIndex);
+    
+    try {
+      const response = await fetch('http://localhost:8000/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: messagesToResend }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const newAssistantMessage = { id: Date.now(), role: 'assistant', content: data.message };
+      
+      // Replace the old message with the new one
+      setMessages(prevMessages => [
+        ...prevMessages.slice(0, editedIndex + 1),
+        newAssistantMessage
+      ]);
+      setLastAssistantMessageId(newAssistantMessage.id);
+      generateNewPrompts();
+    } catch (error) {
+      console.error('Error updating message:', error);
+      toast.error('Failed to update the conversation. Please try again.', { });
+    }
+  };
+
+
 
   const getChatWindowStyle = useCallback(() => {
     if (isMobile) {
@@ -269,35 +330,74 @@ const ChatWidget: React.FC = () => {
               {messages.map((message) => (
                 <React.Fragment key={message.id}>
                   <MessageContainer
-                    key={message.id}
-                    role={message.role}
-                    onMouseEnter={() => setHoveredMessageId(message.id)}
-                    onMouseLeave={() => setHoveredMessageId(null)}
-                  >
-                  {message.role === 'assistant' && (
-                    <AssistantProfilePic src={ava} alt="Ava" />
-                  )}
+              role={message.role}
+              onMouseEnter={() => setHoveredMessageId(message.id)}
+              onMouseLeave={() => setHoveredMessageId(null)}
+            >
+              {message.role === 'assistant' && (
+                <AssistantProfilePic src={ava} alt="Ava" />
+              )}
 
-                  {message.role === 'user' && hoveredMessageId === message.id && (
-                    <HoverActionsContainer>
-                      <Tooltip content="Edit">
-                        <Icon as="button" style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 5 }}>
-                          <EditIcon />
-                        </Icon>
-                      </Tooltip>
-                      <Tooltip content="Delete">
-                        <Icon as="button" onClick={() => deleteMessage(message.id)} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 5 }}>
-                          <TrashIcon />
-                        </Icon>
-                      </Tooltip>
-                    </HoverActionsContainer>
-                  )}
+              {message.role === 'user' && hoveredMessageId === message.id && message.id === messages[messages.length - 2].id && (
+                <HoverActionsContainer>
+                  <Tooltip content="Edit">
+                    <Icon as="button" onClick={() => handleEditClick(message.id, message.content)} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 5 }}>
+                      <EditIcon />
+                    </Icon>
+                  </Tooltip>
+                  <Tooltip content="Delete">
+                    <Icon as="button" onClick={() => deleteMessage(message.id)} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 5 }}>
+                      <TrashIcon />
+                    </Icon>
+                  </Tooltip>
+                </HoverActionsContainer>
+              )}
 
-                  <MessageBubble role={message.role}>
-                    <MessageContent>{message.content}</MessageContent>
-                  </MessageBubble>
-
-              </MessageContainer>
+              <MessageBubble role={message.role}>
+                {editingMessageId === message.id ? (
+                  <>
+                    <EditInput
+                      type="text"
+                      value={editedContent}
+                      onChange={(e) => setEditedContent(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleEditSave();
+                        }
+                      }}
+                    />
+                    <Icon
+                        as="button"
+                        onClick={handleEditSave}
+                        style={{ 
+                          cursor:'pointer', 
+                          background: 'none', 
+                          border: 'none', 
+                          padding: 0 
+                        }}
+                      >
+                      <Check />
+                    </Icon>
+                    <Icon
+                        as="button"
+                        onClick={handleEditCancel}
+                        style={{ 
+                          cursor:'pointer', 
+                          background: 'none', 
+                          border: 'none', 
+                          padding: 0,
+                          color: '#fff'
+                        }}
+                      >
+                      <XWhite />
+                    </Icon>
+                    
+                  </>
+                ) : (
+                  <MessageContent>{message.content}</MessageContent>
+                )}
+              </MessageBubble>
+            </MessageContainer>
               {message.role === 'assistant' && (message.id === lastAssistantMessageId || messages.length == 1) && currentPrompts.length > 0 && (
                     <PromptContainer>
                       {currentPrompts.map((prompt, index) => (
@@ -344,7 +444,6 @@ const ChatWidget: React.FC = () => {
 
 
               <IconContainer>
-
               {showResetButton && (
                   <Tooltip content="Reset chat">
                     <Icon as="button" onClick={resetChat} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0, marginTop: 5 }}>
@@ -353,24 +452,20 @@ const ChatWidget: React.FC = () => {
                   </Tooltip>
                 )}
 
-
                 <Icon>
                   <Settings />
                 </Icon> 
                 <Icon
                   as="button"
-
                   onClick={() => {
                       sendMessage(inputMessage);
-                    
                   }}
                   style={{ 
                     cursor:'pointer', 
                     background: 'none', 
                     border: 'none', 
                     padding: 0 
-                  }}
-                >
+                  }}>
                   <Send />
                 </Icon>
               </IconContainer>

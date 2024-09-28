@@ -253,3 +253,16 @@ export const PromptButton = styled.button`
     color: #fff;
   }
 `;
+
+export const EditInput = styled.input`
+  width: 80%;
+  padding: 15px;
+  border: none;
+  color: #fff;
+  background-color: #8E2DE2;
+
+
+  &:focus {
+    outline: none;
+  }
+`;
