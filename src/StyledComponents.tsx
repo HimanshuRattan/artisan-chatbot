@@ -37,7 +37,7 @@ export const ChatWindow = styled(motion.div)`
     height: 100%;
     bottom: 0;
     right: 0;
-    border-radius: 0;
+    border-radius: 20px;
   }
 `;
 
