@@ -124,7 +124,7 @@ export const AskAnything = styled.p`
 export const ChatInputContainer = styled.div`
   display: flex;
   align-items: center;
-  padding: 15px;
+  padding: 5px 15px;
 `;
 
 export const ProfileImageRound = styled.img`
@@ -168,8 +168,6 @@ export const SelectWrapper = styled.div`
     top: 50%;
     transform: translateY(-50%);
     pointer-events: none;
-    // width: 12px;
-    // height: 12px;
     }
 `;  
 
@@ -229,4 +227,29 @@ export const Tooltip = styled.div<{ content: string }>`
 
 export const HoverActionsContainer = styled.div`
   transition: all 5s ease-in-out;
+`;
+
+export const PromptContainer = styled.div`
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  position: relative;
+  left: 40px;
+  width: 80%
+`;
+
+export const PromptButton = styled.button`
+  background-color: #fff;
+  border: 1px solid #8E2DE2;
+  color: #8E2DE2;
+  border-radius: 15px;
+  padding: 5px 10px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+
+  &:hover {
+    background-color: #8E2DE2;
+    color: #fff;
+  }
 `;

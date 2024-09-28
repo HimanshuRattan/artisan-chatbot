@@ -40,7 +40,9 @@ import {
     MessageContent,
     AssistantProfilePic,
     Tooltip,
-    HoverActionsContainer
+    HoverActionsContainer,
+    PromptContainer,
+    PromptButton
   } from './StyledComponents';
 
   interface Message {
@@ -58,6 +60,8 @@ const ChatWidget: React.FC = () => {
   const [showResetButton, setShowResetButton] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
+  const [currentPrompts, setCurrentPrompts] = useState<string[]>(['Tell a Joke', 'Ask a Riddle']);
+  const [lastAssistantMessageId, setLastAssistantMessageId] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
@@ -102,13 +106,21 @@ const ChatWidget: React.FC = () => {
     }
   };
 
-  const sendMessage = async () => {
-    if (inputMessage.trim() === '') return;
-  
-    const newUserMessage = { id: Date.now(), role: 'user', content: inputMessage };
+  const generateNewPrompts = () => {
+    const prompts = [
+      'Tell a Joke', 'Ask a Riddle', 'Give a Fun Fact',
+      'Suggest a Book', 'Recommend a Movie', 'Share a Quote'
+    ];
+    const newPrompts = prompts.sort(() => 0.5 - Math.random()).slice(0, 2);
+    setCurrentPrompts(newPrompts);
+  };
+
+  const sendMessage = async (content: string) => {
+    const newUserMessage = { id: Date.now(), role: 'user', content };
     setMessages(prevMessages => [...prevMessages, newUserMessage]);
     setInputMessage('');
-  
+    setCurrentPrompts([]); // Clear prompts when user sends a message
+
     try {
       const response = await fetch('http://localhost:8000/chat', {
         method: 'POST',
@@ -118,10 +130,18 @@ const ChatWidget: React.FC = () => {
         body: JSON.stringify({ messages: [...messages, newUserMessage] }),
       });
       const data = await response.json();
-      setMessages(prevMessages => [...prevMessages, { id: Date.now(), role: 'assistant', content: data.message }]);
+      const newAssistantMessage = { id: Date.now(), role: 'assistant', content: data.message };
+      setMessages(prevMessages => [...prevMessages, newAssistantMessage]);
+      setLastAssistantMessageId(newAssistantMessage.id);
+      generateNewPrompts();
     } catch (error) {
       console.error('Error sending message:', error);
     }
+  };
+
+  const handlePromptClick = (prompt: string) => {
+    sendMessage(prompt);
+    setCurrentPrompts([]); // Clear prompts after selection
   };
 
   const deleteMessage = (messageId: number) => {
@@ -206,7 +226,8 @@ const ChatWidget: React.FC = () => {
               </Icon>
             </ChatHeader>
 
-              <ChatBody>
+            <ChatBody>
+                
                 <IntroContainer>
                   <ProfileImage src={ava} alt="Profile" />
                   <Greeting>
@@ -214,18 +235,20 @@ const ChatWidget: React.FC = () => {
                   </Greeting>
                   <AskAnything>Ask me anything or pick a place to start</AskAnything>
                 </IntroContainer>
+              
               {messages.map((message) => (
-              <MessageContainer
-                key={message.id}
-                role={message.role}
-                onMouseEnter={() => setHoveredMessageId(message.id)}
-                onMouseLeave={() => setHoveredMessageId(null)}
-              >
-                {message.role === 'assistant' && (
-                  <AssistantProfilePic src={ava} alt="Ava" />
-                )}
+                <React.Fragment key={message.id}>
+                  <MessageContainer
+                    key={message.id}
+                    role={message.role}
+                    onMouseEnter={() => setHoveredMessageId(message.id)}
+                    onMouseLeave={() => setHoveredMessageId(null)}
+                  >
+                  {message.role === 'assistant' && (
+                    <AssistantProfilePic src={ava} alt="Ava" />
+                  )}
 
-{message.role === 'user' && hoveredMessageId === message.id && (
+                  {message.role === 'user' && hoveredMessageId === message.id && (
                     <HoverActionsContainer>
                       <Tooltip content="Edit">
                         <Icon as="button" style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 5 }}>
@@ -239,12 +262,24 @@ const ChatWidget: React.FC = () => {
                       </Tooltip>
                     </HoverActionsContainer>
                   )}
-                <MessageBubble role={message.role}>
-                  <MessageContent>{message.content}</MessageContent>
-                  
-                </MessageBubble>
+
+                  <MessageBubble role={message.role}>
+                    <MessageContent>{message.content}</MessageContent>
+                  </MessageBubble>
+
               </MessageContainer>
-            ))}
+              {message.role === 'assistant' && (message.id === lastAssistantMessageId || messages.length == 1) && currentPrompts.length > 0 && (
+                    <PromptContainer>
+                      {currentPrompts.map((prompt, index) => (
+                        <PromptButton key={index} onClick={() => handlePromptClick(prompt)}>
+                          {prompt}
+                        </PromptButton>
+                      ))}
+                    </PromptContainer>
+                  )}
+                </React.Fragment>
+              ))}
+
             </ChatBody>
             
             <BorderLine />
@@ -255,7 +290,11 @@ const ChatWidget: React.FC = () => {
                   placeholder="Your question"
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && inputMessage.trim() !== '') {
+                      sendMessage(inputMessage);
+                    }
+                  }}
                 />
             </ChatInputContainer>
             
@@ -288,7 +327,20 @@ const ChatWidget: React.FC = () => {
                 <Icon>
                   <Settings />
                 </Icon> 
-                <Icon as="button" onClick={sendMessage} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}>
+                <Icon
+                  as="button"
+                  onClick={() => {
+                    if (inputMessage.trim() !== '') {
+                      sendMessage(inputMessage);
+                    }
+                  }}
+                  style={{ 
+                    cursor: inputMessage.trim() === '' ? 'not-allowed' : 'pointer', 
+                    background: 'none', 
+                    border: 'none', 
+                    padding: 0 
+                  }}
+                >
                   <Send />
                 </Icon>
               </IconContainer>
