@@ -225,3 +225,8 @@ export const Tooltip = styled.div<{ content: string }>`
     white-space: nowrap;
   }
 `;
+
+
+export const HoverActionsContainer = styled.div`
+  transition: all 5s ease-in-out;
+`;

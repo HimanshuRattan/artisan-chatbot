@@ -6,10 +6,8 @@ import openai
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Set up OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 app = FastAPI()
@@ -18,10 +16,10 @@ app = FastAPI()
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 class Message(BaseModel):

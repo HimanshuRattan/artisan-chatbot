@@ -12,6 +12,8 @@ import ava from './assets/ava.png';
 import waveImage from './assets/wave.png';
 import { ReactComponent as RefreshIcon } from './assets/refresh-cw.svg';
 import { ReactComponent as ChevronIcon } from './assets/down.svg';
+import { ReactComponent as EditIcon } from './assets/edit.svg';
+import { ReactComponent as TrashIcon } from './assets/trash-2.svg';
 
 import {
     WidgetButton,
@@ -37,17 +39,25 @@ import {
     MessageBubble,
     MessageContent,
     AssistantProfilePic,
-    Tooltip
+    Tooltip,
+    HoverActionsContainer
   } from './StyledComponents';
+
+  interface Message {
+    id: number;
+    role: string;
+    content: string;
+  }
 
 const ChatWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [selectedRole, setSelectedRole] = useState('onboarding');
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [showResetButton, setShowResetButton] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
@@ -85,7 +95,8 @@ const ChatWidget: React.FC = () => {
     try {
       const response = await fetch('http://localhost:8000/initial-message');
       const data = await response.json();
-      setMessages([{ role: 'assistant', content: data.message }]);
+      
+      setMessages([{ id: Date.now(), role: 'assistant', content: data.message }]);
     } catch (error) {
       console.error('Error fetching initial message:', error);
     }
@@ -93,24 +104,36 @@ const ChatWidget: React.FC = () => {
 
   const sendMessage = async () => {
     if (inputMessage.trim() === '') return;
-
-    const newMessages = [...messages, { role: 'user', content: inputMessage }];
-    setMessages(newMessages);
+  
+    const newUserMessage = { id: Date.now(), role: 'user', content: inputMessage };
+    setMessages(prevMessages => [...prevMessages, newUserMessage]);
     setInputMessage('');
-
+  
     try {
       const response = await fetch('http://localhost:8000/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: [...messages, newUserMessage] }),
       });
       const data = await response.json();
-      setMessages([...newMessages, { role: 'assistant', content: data.message }]);
+      setMessages(prevMessages => [...prevMessages, { id: Date.now(), role: 'assistant', content: data.message }]);
     } catch (error) {
       console.error('Error sending message:', error);
     }
+  };
+
+  const deleteMessage = (messageId: number) => {
+    setMessages(prevMessages => {
+      const indexToDelete = prevMessages.findIndex(msg => msg.id === messageId);
+      if (indexToDelete === -1) return prevMessages;
+  
+      // Remove the user message and the following assistant message (if it exists)
+      const newMessages = [...prevMessages];
+      newMessages.splice(indexToDelete, indexToDelete + 1 < newMessages.length ? 2 : 1);
+      return newMessages;
+    });
   };
 
   const toggleChat = () => {
@@ -191,18 +214,37 @@ const ChatWidget: React.FC = () => {
                   </Greeting>
                   <AskAnything>Ask me anything or pick a place to start</AskAnything>
                 </IntroContainer>
-              {
-                messages.map((message, index) => (
-                  <MessageContainer key={index} role={message.role}>
-                    {message.role === 'assistant' && (
-                      <AssistantProfilePic src={ava} alt="Ava" />
-                    )}
-                    <MessageBubble role={message.role}>
-                      <MessageContent>{message.content}</MessageContent>
-                    </MessageBubble>
-                  </MessageContainer>
-                ))
-              }
+              {messages.map((message) => (
+              <MessageContainer
+                key={message.id}
+                role={message.role}
+                onMouseEnter={() => setHoveredMessageId(message.id)}
+                onMouseLeave={() => setHoveredMessageId(null)}
+              >
+                {message.role === 'assistant' && (
+                  <AssistantProfilePic src={ava} alt="Ava" />
+                )}
+
+{message.role === 'user' && hoveredMessageId === message.id && (
+                    <HoverActionsContainer>
+                      <Tooltip content="Edit">
+                        <Icon as="button" style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 5 }}>
+                          <EditIcon />
+                        </Icon>
+                      </Tooltip>
+                      <Tooltip content="Delete">
+                        <Icon as="button" onClick={() => deleteMessage(message.id)} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 5 }}>
+                          <TrashIcon />
+                        </Icon>
+                      </Tooltip>
+                    </HoverActionsContainer>
+                  )}
+                <MessageBubble role={message.role}>
+                  <MessageContent>{message.content}</MessageContent>
+                  
+                </MessageBubble>
+              </MessageContainer>
+            ))}
             </ChatBody>
             
             <BorderLine />
