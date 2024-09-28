@@ -14,6 +14,8 @@ import { ReactComponent as RefreshIcon } from './assets/refresh-cw.svg';
 import { ReactComponent as ChevronIcon } from './assets/down.svg';
 import { ReactComponent as EditIcon } from './assets/edit.svg';
 import { ReactComponent as TrashIcon } from './assets/trash-2.svg';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 import {
     WidgetButton,
@@ -98,11 +100,17 @@ const ChatWidget: React.FC = () => {
   const fetchInitialMessage = async () => {
     try {
       const response = await fetch('http://localhost:8000/initial-message');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
-      
+      if (!data.message) {
+        throw new Error('Invalid response from server');
+      }
       setMessages([{ id: Date.now(), role: 'assistant', content: data.message }]);
     } catch (error) {
       console.error('Error fetching initial message:', error);
+      toast.error('Failed to start the conversation. Please refresh the page.', {  });
     }
   };
 
@@ -116,26 +124,45 @@ const ChatWidget: React.FC = () => {
   };
 
   const sendMessage = async (content: string) => {
+    if (content.trim() === '') {
+      toast.warn('Please enter a message before sending.', {  });
+      return;
+    }
+
     const newUserMessage = { id: Date.now(), role: 'user', content };
     setMessages(prevMessages => [...prevMessages, newUserMessage]);
     setInputMessage('');
-    setCurrentPrompts([]); // Clear prompts when user sends a message
+    setCurrentPrompts([]);
 
     try {
       const response = await fetch('http://localhost:8000/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: [...messages, newUserMessage] }),
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
+      if (!data.message) {
+        throw new Error('Invalid response from server');
+      }
+
       const newAssistantMessage = { id: Date.now(), role: 'assistant', content: data.message };
       setMessages(prevMessages => [...prevMessages, newAssistantMessage]);
       setLastAssistantMessageId(newAssistantMessage.id);
       generateNewPrompts();
     } catch (error) {
       console.error('Error sending message:', error);
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        toast.error('Network error. Please check your internet connection.', {  });
+      } else if (error instanceof Error && error.message.includes('HTTP error! status: 429')) {
+        toast.error('Too many requests. Please try again later.', {  });
+      } else {
+        toast.error('Failed to send message. Please try again.', {  });
+      }
     }
   };
 
@@ -199,6 +226,9 @@ const ChatWidget: React.FC = () => {
 
   return (
     <>
+      <ToastContainer position="top-right" autoClose={5000} hideProgressBar={false} 
+                      closeOnClick pauseOnHover draggable 
+                      theme="colored" />
       <AnimatePresence>
         {isOpen && (
           <ChatWindow
@@ -329,13 +359,13 @@ const ChatWidget: React.FC = () => {
                 </Icon> 
                 <Icon
                   as="button"
+
                   onClick={() => {
-                    if (inputMessage.trim() !== '') {
                       sendMessage(inputMessage);
-                    }
+                    
                   }}
                   style={{ 
-                    cursor: inputMessage.trim() === '' ? 'not-allowed' : 'pointer', 
+                    cursor:'pointer', 
                     background: 'none', 
                     border: 'none', 
                     padding: 0 
