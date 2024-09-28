@@ -24,7 +24,7 @@ export const ChatWindow = styled(motion.div)`
   bottom: 100px;
   right: 20px;
   width: 400px;
-  height: 700px;
+  height: 80%;
   background-color: white;
   border-radius: 20px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
@@ -178,3 +178,50 @@ export const FooterText = styled.div`
   align-items: center;
 `;
 
+
+export const MessageContainer = styled.div<{ role: string }>`
+  display: flex;
+  flex-direction: ${props => props.role === 'user' ? 'row-reverse' : 'row'};
+  margin-bottom: 10px;
+  margin-top: 30px;
+`;
+
+export const MessageBubble = styled.div<{ role: string }>`
+  background-color: ${props => props.role === 'user' ? '#8E2DE2' : '#F5F5F5'};
+  color: ${props => props.role === 'user' ? 'white' : 'black'};
+  border-radius: ${props => props.role === 'user' ? '18px 2px 18px 18px' : '2px 18px 18px 18px'};
+  padding: 10px 15px;
+  max-width: 70%;
+  word-wrap: break-word;
+`;
+
+export const MessageContent = styled.p`
+  margin: 0;
+  font-size: 14px;
+`;
+
+export const AssistantProfilePic = styled.img`
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  margin-right: 10px;
+`;
+
+export const Tooltip = styled.div<{ content: string }>`
+  position: relative;
+  display: inline-block;
+
+  &:hover::after {
+    content: "${props => props.content}";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+`;

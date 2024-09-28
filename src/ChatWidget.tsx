@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ReactComponent as MessageCircleIcon } from './assets/message-circle.svg';
 import { ReactComponent as XIcon } from './assets/x.svg';
@@ -9,6 +9,7 @@ import { ReactComponent as Settings } from './assets/settings.svg';
 import profilePic from './assets/profile.png';
 import ava from './assets/ava.png';
 import waveImage from './assets/wave.png';
+import { ReactComponent as RefreshIcon } from './assets/refresh-cw.svg';
 import { ReactComponent as ChevronIcon } from './assets/down.svg';
 
 import {
@@ -30,12 +31,62 @@ import {
     BorderLine,
     FooterText,
     StyledSelect,
-    SelectWrapper
+    SelectWrapper,
+    MessageContainer,
+    MessageBubble,
+    MessageContent,
+    AssistantProfilePic,
+    Tooltip
   } from './StyledComponents';
 
 const ChatWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState('onboarding');
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [showResetButton, setShowResetButton] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && messages.length === 0) {
+      fetchInitialMessage();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    setShowResetButton(messages.some(message => message.role === 'user'));
+  }, [messages]);
+
+  const fetchInitialMessage = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/initial-message');
+      const data = await response.json();
+      setMessages([{ role: 'assistant', content: data.message }]);
+    } catch (error) {
+      console.error('Error fetching initial message:', error);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (inputMessage.trim() === '') return;
+
+    const newMessages = [...messages, { role: 'user', content: inputMessage }];
+    setMessages(newMessages);
+    setInputMessage('');
+
+    try {
+      const response = await fetch('http://localhost:8000/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ messages: newMessages }),
+      });
+      const data = await response.json();
+      setMessages([...newMessages, { role: 'assistant', content: data.message }]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  };
 
   const toggleChat = () => {
     setIsOpen(!isOpen);
@@ -43,6 +94,11 @@ const ChatWidget: React.FC = () => {
 
   const handleRoleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedRole(event.target.value);
+  };
+
+  const resetChat = () => {
+    setMessages([]);
+    fetchInitialMessage();
   };
 
   return (
@@ -71,20 +127,38 @@ const ChatWidget: React.FC = () => {
               </Icon>
             </ChatHeader>
 
-            <ChatBody>
-              <IntroContainer>
-                <ProfileImage src={ava} alt="Profile" />
-                <Greeting>
-                  Hey <WaveImage src={waveImage} alt="Wave" />, I'm Ava
-                </Greeting>
-                <AskAnything>Ask me anything or pick a place to start</AskAnything>
-              </IntroContainer>
+              <ChatBody>
+                <IntroContainer>
+                  <ProfileImage src={ava} alt="Profile" />
+                  <Greeting>
+                    Hey <WaveImage src={waveImage} alt="Wave" />, I'm Ava
+                  </Greeting>
+                  <AskAnything>Ask me anything or pick a place to start</AskAnything>
+                </IntroContainer>
+              {
+                messages.map((message, index) => (
+                  <MessageContainer key={index} role={message.role}>
+                    {message.role === 'assistant' && (
+                      <AssistantProfilePic src={ava} alt="Ava" />
+                    )}
+                    <MessageBubble role={message.role}>
+                      <MessageContent>{message.content}</MessageContent>
+                    </MessageBubble>
+                  </MessageContainer>
+                ))
+              }
             </ChatBody>
             
             <BorderLine />
             <ChatInputContainer>
                 <ProfileImageRound src={profilePic} alt="Profile" />
-                <ChatInput type="text" placeholder="Your question" />
+                <ChatInput
+                  type="text"
+                  placeholder="Your question"
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                />
             </ChatInputContainer>
             
             <Footer>
@@ -103,10 +177,20 @@ const ChatWidget: React.FC = () => {
 
 
               <IconContainer>
+
+              {showResetButton && (
+                  <Tooltip content="Reset chat">
+                    <Icon as="button" onClick={resetChat} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0, marginTop: 5 }}>
+                      <RefreshIcon />
+                    </Icon>
+                  </Tooltip>
+                )}
+
+
                 <Icon>
                   <Settings />
                 </Icon> 
-                <Icon>
+                <Icon as="button" onClick={sendMessage} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}>
                   <Send />
                 </Icon>
               </IconContainer>
