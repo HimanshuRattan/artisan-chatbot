@@ -33,6 +33,12 @@ const Login: React.FC = () => {
   //     navigate('/home', { replace: true });
   //   }
   // }, [isAuthenticated, navigate]);
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      navigate('/home');
+    }
+  }, [navigate]);
 
   const validateForm = (): boolean => {
     if (!username.trim() || !password.trim()) {
