@@ -52,8 +52,9 @@ import {
 
   interface Message {
     id: number;
-    role: string;
     content: string;
+    is_user_message: boolean;
+    created_at: string;
   }
 
 const ChatWidget: React.FC = () => {
@@ -69,15 +70,30 @@ const ChatWidget: React.FC = () => {
   const [lastAssistantMessageId, setLastAssistantMessageId] = useState<number | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editedContent, setEditedContent] = useState('');
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      fetchInitialMessage();
+    if (isOpen && !isInitialized) {
+      initializeChat();
     }
   }, [isOpen]);
 
+  // useEffect(() => {
+  //   if (!isInitialized) {
+  //     initializeChat();
+  //   }
+  // }, []);
+
+  const initializeChat = async () => {
+    await fetchConversation();
+    if (messages.length === 0) {
+      await fetchInitialMessage();
+    }
+    setIsInitialized(true);
+  };
+
   useEffect(() => {
-    setShowResetButton(messages.some(message => message.role === 'user'));
+    setShowResetButton(messages.some(message => message.is_user_message === true));
   }, [messages]);
 
   const toggleFullScreen = useCallback(() => {
@@ -86,9 +102,9 @@ const ChatWidget: React.FC = () => {
     }
   }, [isMobile, isFullScreen]);
 
-  useEffect(() => {
-    setShowResetButton(messages.some(message => message.role === 'user'));
-  }, [messages]);
+  // useEffect(() => {
+  //   setShowResetButton(messages.some(message => message.role === 'user'));
+  // }, [messages]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -102,73 +118,97 @@ const ChatWidget: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const fetchInitialMessage = async () => {
+
+  const fetchConversation = async () => {
     try {
-      const response = await fetch('http://localhost:8000/initial-message');
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:8000/messages', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      if (!data.message) {
-        throw new Error('Invalid response from server');
-      }
-      setMessages([{ id: Date.now(), role: 'assistant', content: data.message }]);
+      setMessages(data);
     } catch (error) {
-      console.error('Error fetching initial message:', error);
-      toast.error('Failed to start the conversation. Please refresh the page.', {  });
+      console.error('Error fetching conversation:', error);
+      toast.error('Failed to load conversation. Please try again.', {});
     }
   };
 
-  const generateNewPrompts = () => {
+
+
+
+  const fetchInitialMessage = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch('http://localhost:8000/initial-message', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data: Message = await response.json();
+    setMessages(prevMessages => [...prevMessages, data]);
+  } catch (error) {
+    console.error('Error fetching initial message:', error);
+    toast.error('Failed to start the conversation. Please try again.', {});
+  }
+};
+
+  const generateNewPrompts = useCallback(() => {
     const prompts = [
-      'Tell a Joke', 'Ask a Riddle', 'Give a Fun Fact',
-      'Suggest a Book', 'Recommend a Movie', 'Share a Quote'
+      'Tell a Joke', 'Ask a Riddle', 'Give a Fun Fact', 'What is AI', 'What is a BDR'
     ];
     const newPrompts = prompts.sort(() => 0.5 - Math.random()).slice(0, 2);
     setCurrentPrompts(newPrompts);
-  };
+  }, []);
 
   const sendMessage = async (content: string) => {
     if (content.trim() === '') {
-      toast.warn('Please enter a message before sending.', {  });
+      toast.warn('Please enter a message before sending.', {});
       return;
     }
-
-    const newUserMessage = { id: Date.now(), role: 'user', content };
-    setMessages(prevMessages => [...prevMessages, newUserMessage]);
-    setInputMessage('');
-    setCurrentPrompts([]);
-
+  
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:8000/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [...messages, newUserMessage] }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ content }),
       });
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      const data = await response.json();
-      if (!data.message) {
-        throw new Error('Invalid response from server');
-      }
-
-      const newAssistantMessage = { id: Date.now(), role: 'assistant', content: data.message };
-      setMessages(prevMessages => [...prevMessages, newAssistantMessage]);
-      setLastAssistantMessageId(newAssistantMessage.id);
+      const data: Message = await response.json();
+      setMessages(prevMessages => [
+        ...prevMessages,
+        {
+          id: Date.now(),
+          content: content,
+          is_user_message: true,
+          created_at: new Date().toISOString()
+        },
+        data
+      ]);
+      setInputMessage('');
+      setLastAssistantMessageId(data.id);
       generateNewPrompts();
     } catch (error) {
       console.error('Error sending message:', error);
-      if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        toast.error('Network error. Please check your internet connection.', {  });
-      } else if (error instanceof Error && error.message.includes('HTTP error! status: 429')) {
-        toast.error('Too many requests. Please try again later.', {  });
-      } else {
-        toast.error('Failed to send message. Please try again.', {  });
-      }
+      toast.error('Failed to send message. Please try again.', {});
     }
+
+    console.log(messages)
   };
 
   const handlePromptClick = (prompt: string) => {
@@ -176,16 +216,35 @@ const ChatWidget: React.FC = () => {
     setCurrentPrompts([]);
   };
 
-  const deleteMessage = (messageId: number) => {
-    setMessages(prevMessages => {
-      const indexToDelete = prevMessages.findIndex(msg => msg.id === messageId);
-      if (indexToDelete === -1) return prevMessages;
-  
-      // Remove the user message and the following assistant message
-      const newMessages = [...prevMessages];
-      newMessages.splice(indexToDelete, indexToDelete + 1 < newMessages.length ? 2 : 1);
-      return newMessages;
-    });
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (!lastMessage.is_user_message) {
+        setLastAssistantMessageId(lastMessage.id);
+        generateNewPrompts();
+      }
+    }
+  }, [messages, generateNewPrompts]);
+
+  const deleteMessage = async (messageId: number) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:8000/messages/${messageId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      setMessages(prevMessages => prevMessages.filter(msg => msg.id !== messageId));
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      toast.error('Failed to delete message. Please try again.', {});
+    }
   };
 
   const toggleChat = () => {
@@ -196,9 +255,25 @@ const ChatWidget: React.FC = () => {
     setSelectedRole(event.target.value);
   };
 
-  const resetChat = () => {
-    setMessages([]);
-    fetchInitialMessage();
+  const resetChat = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:8000/reset-conversation', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      setMessages([]);
+    } catch (error) {
+      console.error('Error resetting conversation:', error);
+      toast.error('Failed to reset conversation. Please try again.', {});
+    }
   };
 
   //edit message functions
@@ -215,43 +290,32 @@ const ChatWidget: React.FC = () => {
   const handleEditSave = async () => {
     if (!editingMessageId) return;
 
-    const updatedMessages = messages.map(msg =>
-      msg.id === editingMessageId ? { ...msg, content: editedContent } : msg
-    );
-
-    setMessages(updatedMessages);
-    setEditingMessageId(null);
-
-    // Find the index of the edited message
-    const editedIndex = updatedMessages.findIndex(msg => msg.id === editingMessageId);
-    if (editedIndex === -1 || editedIndex === updatedMessages.length - 1) return;
-
-    const messagesToResend = updatedMessages.slice(editedIndex);
-    
     try {
-      const response = await fetch('http://localhost:8000/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messagesToResend }),
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:8000/messages/${editingMessageId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ content: editedContent }),
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
-      const data = await response.json();
-      const newAssistantMessage = { id: Date.now(), role: 'assistant', content: data.message };
-      
-      // Replace the old message with the new one
-      setMessages(prevMessages => [
-        ...prevMessages.slice(0, editedIndex + 1),
-        newAssistantMessage
-      ]);
-      setLastAssistantMessageId(newAssistantMessage.id);
-      generateNewPrompts();
+
+      const updatedMessage = await response.json();
+      setMessages(prevMessages =>
+        prevMessages.map(msg =>
+          msg.id === editingMessageId ? updatedMessage : msg
+        )
+      );
+      setEditingMessageId(null);
+      setEditedContent('');
     } catch (error) {
       console.error('Error updating message:', error);
-      toast.error('Failed to update the conversation. Please try again.', { });
+      toast.error('Failed to update message. Please try again.', {});
     }
   };
 
@@ -318,98 +382,100 @@ const ChatWidget: React.FC = () => {
             </ChatHeader>
 
             <ChatBody>
-                
-                <IntroContainer>
+
+            <IntroContainer>
                   <ProfileImage src={ava} alt="Profile" />
                   <Greeting>
                     Hey <WaveImage src={waveImage} alt="Wave" />, I'm Ava
                   </Greeting>
                   <AskAnything>Ask me anything or pick a place to start</AskAnything>
                 </IntroContainer>
-              
-              {messages.map((message) => (
+
+                {messages.map((message, index) => (
                 <React.Fragment key={message.id}>
-                  <MessageContainer
-              role={message.role}
-              onMouseEnter={() => setHoveredMessageId(message.id)}
-              onMouseLeave={() => setHoveredMessageId(null)}
-            >
-              {message.role === 'assistant' && (
-                <AssistantProfilePic src={ava} alt="Ava" />
-              )}
-
-              {message.role === 'user' && hoveredMessageId === message.id && message.id === messages[messages.length - 2].id && (
-                <HoverActionsContainer>
-                  <Tooltip content="Edit">
-                    <Icon as="button" onClick={() => handleEditClick(message.id, message.content)} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 5 }}>
-                      <EditIcon />
-                    </Icon>
-                  </Tooltip>
-                  <Tooltip content="Delete">
-                    <Icon as="button" onClick={() => deleteMessage(message.id)} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 5 }}>
-                      <TrashIcon />
-                    </Icon>
-                  </Tooltip>
-                </HoverActionsContainer>
-              )}
-
-              <MessageBubble role={message.role}>
-                {editingMessageId === message.id ? (
-                  <>
-                    <EditInput
-                      type="text"
-                      value={editedContent}
-                      onChange={(e) => setEditedContent(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          handleEditSave();
-                        }
-                      }}
-                    />
-                    <Icon
-                        as="button"
-                        onClick={handleEditSave}
-                        style={{ 
-                          cursor:'pointer', 
-                          background: 'none', 
-                          border: 'none', 
-                          padding: 0 
-                        }}
-                      >
-                      <Check />
-                    </Icon>
-                    <Icon
-                        as="button"
-                        onClick={handleEditCancel}
-                        style={{ 
-                          cursor:'pointer', 
-                          background: 'none', 
-                          border: 'none', 
-                          padding: 0,
-                          color: '#fff'
-                        }}
-                      >
-                      <XWhite />
-                    </Icon>
-                    
-                  </>
-                ) : (
-                  <MessageContent>{message.content}</MessageContent>
-                )}
-              </MessageBubble>
-            </MessageContainer>
-              {message.role === 'assistant' && (message.id === lastAssistantMessageId || messages.length == 1) && currentPrompts.length > 0 && (
-                    <PromptContainer>
-                      {currentPrompts.map((prompt, index) => (
-                        <PromptButton key={index} onClick={() => handlePromptClick(prompt)}>
-                          {prompt}
-                        </PromptButton>
-                      ))}
-                    </PromptContainer>
+                <MessageContainer
+                  key={message.id}
+                  role={message.is_user_message ? 'user' : 'assistant'}
+                  onMouseEnter={() => setHoveredMessageId(message.id)}
+                  onMouseLeave={() => setHoveredMessageId(null)}
+                >
+                  {!message.is_user_message && (
+                    <AssistantProfilePic src={ava} alt="Ava" />
                   )}
-                </React.Fragment>
-              ))}
 
+                  {message.is_user_message && hoveredMessageId === message.id && (
+                    <HoverActionsContainer>
+                      <Tooltip content="Edit">
+                        <Icon as="button" onClick={() => handleEditClick(message.id, message.content)} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 5 }}>
+                          <EditIcon />
+                        </Icon>
+                      </Tooltip>
+                      <Tooltip content="Delete">
+                        <Icon as="button" onClick={() => deleteMessage(message.id)} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 5 }}>
+                          <TrashIcon />
+                        </Icon>
+                      </Tooltip>
+                    </HoverActionsContainer>
+                  )}
+
+                  <MessageBubble role={message.is_user_message ? 'user' : 'assistant'}>
+                    {editingMessageId === message.id ? (
+                      <>
+                        <EditInput
+                          type="text"
+                          value={editedContent}
+                          onChange={(e) => setEditedContent(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              handleEditSave();
+                            }
+                          }}
+                        />
+                        <Icon
+                          as="button"
+                          onClick={handleEditSave}
+                          style={{ 
+                            cursor:'pointer', 
+                            background: 'none', 
+                            border: 'none', 
+                            padding: 0 
+                          }}
+                        >
+                          <Check />
+                        </Icon>
+                        <Icon
+                          as="button"
+                          onClick={handleEditCancel}
+                          style={{ 
+                            cursor:'pointer', 
+                            background: 'none', 
+                            border: 'none', 
+                            padding: 0,
+                            color: '#fff'
+                          }}
+                        >
+                          <XWhite />
+                        </Icon>
+                      </>
+                    ) : (
+                      <MessageContent>{message.content}</MessageContent>
+                    )}
+                  </MessageBubble>
+                </MessageContainer>
+
+                {!message.is_user_message && message.id === lastAssistantMessageId && currentPrompts.length > 0 && (
+                  <PromptContainer>
+                    {currentPrompts.map((prompt, promptIndex) => (
+                      <PromptButton key={promptIndex} onClick={() => handlePromptClick(prompt)}>
+                        {prompt}
+                      </PromptButton>
+                    ))}
+                  </PromptContainer>
+                )}
+              </React.Fragment>
+
+                
+              ))}
             </ChatBody>
             
             <BorderLine />

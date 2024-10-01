@@ -1,13 +1,25 @@
 import React from 'react';
-import ChatWidget from './ChatWidget';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Login from './Login';
+import Home from './Home';
+import ProtectedRoute from './ProtectedRoute';
 
 const App: React.FC = () => {
   return (
-    <div className="App">
-      <h1>Artisan AI</h1>
-      <p>Full-stack Async Exercise</p>
-      <ChatWidget />
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={
+          <ProtectedRoute isProtected={false}>
+            <Login />
+          </ProtectedRoute>
+        } />
+        <Route path="/home" element={
+          <ProtectedRoute isProtected={true}>
+            <Home />
+          </ProtectedRoute>
+        } />
+      </Routes>
+    </Router>
   );
 };
 

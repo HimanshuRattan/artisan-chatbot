@@ -5,3 +5,5 @@ __pycache__/
 *.pyc
 build/
 dist/
+backend/__pycache__/
+backend/test.db
