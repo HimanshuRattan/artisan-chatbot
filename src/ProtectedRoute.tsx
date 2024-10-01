@@ -1,38 +1,21 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate  } from 'react-router-dom';
 import Home from './Home';
 
 function ProtectedRoute() {
 // export const ProtectedRoute = () => {
-  // const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     console.log("Hopefully you are not here. 😬");
     const verifyToken = async () => {
       const token = localStorage.getItem('token');
-      // if (!token) {
-      //   setIsAuthenticated(false);
-      //   return;
-      // }
+      if (!token) {
+        setIsAuthenticated(false);
+        return;
+      }
 
-      // try {
-      //   const response = await fetch('http://localhost:8000/verify-token', {
-      //     headers: {
-      //       'Authorization': `Bearer ${token}`
-      //     }
-      //   });
-
-      //   if (response.ok) {
-      //     setIsAuthenticated(true);
-      //   } else {
-      //     throw new Error('Token verification failed');
-      //   }
-      // } catch (error) {
-      //   console.error('Token verification failed:', error);
-      //   localStorage.removeItem('token');
-      //   setIsAuthenticated(false);
-      // }
 
       try {
         const response = await fetch('http://localhost:8000/verify-token', {
@@ -44,9 +27,14 @@ function ProtectedRoute() {
         if (!response.ok) {
           throw new Error('Token verification failed');
         } 
+        else {
+          console.log("all good")
+          setIsAuthenticated(true);
+        }
       } catch (error) {
         console.error('Token verification failed:', error);
         localStorage.removeItem('token');
+        setIsAuthenticated(false);
         navigate('/');
       }
     };
@@ -54,13 +42,15 @@ function ProtectedRoute() {
     verifyToken();
   }, [navigate]);
 
+  if (isAuthenticated === null) {
+    return <div>Loading...</div>; 
+  }
+
   return (
-      <Home />
+    isAuthenticated ? <Home /> : <Navigate to="/" replace />
+
   )
 
-
-
-  // return { isAuthenticated, setIsAuthenticated };
 };
 
 export default ProtectedRoute;

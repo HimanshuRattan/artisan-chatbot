@@ -278,3 +278,19 @@ export const DeletedMessageBubble = styled.div`
   margin: 5px 0;
   align-self: ${props => props.role === 'user' ? 'flex-end' : 'flex-start'};
 `;
+
+// export const LoadingDots = styled.div`
+//   display: flex;
+//   justify-content: center;
+//   align-items: center;
+//   height: 20px;
+
+//   span {
+//     background-color: #8442FF;
+//     border-radius: 50%;
+//     display: inline-block;
+//     margin: 0 3px;
+//     height: 6px;
+//     width: 6px;
+//   }
+// `;

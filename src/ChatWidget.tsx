@@ -48,7 +48,8 @@ import {
     PromptContainer,
     PromptButton,
     EditInput,
-    DeletedMessageBubble 
+    DeletedMessageBubble,
+    // LoadingDots
   } from './StyledComponents';
 
   interface Message {
@@ -74,6 +75,7 @@ const ChatWidget: React.FC = () => {
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editedContent, setEditedContent] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen && !isInitialized) {
@@ -142,8 +144,6 @@ const ChatWidget: React.FC = () => {
   };
 
 
-
-
   const fetchInitialMessage = async () => {
     console.log("🎉 Congratulations on the seed round 🎉");
   try {
@@ -177,6 +177,8 @@ const ChatWidget: React.FC = () => {
       toast.warn('Please enter a message before sending.', {});
       return;
     }
+
+    setIsLoading(true);
   
     try {
       const token = localStorage.getItem('token');
@@ -213,10 +215,12 @@ const ChatWidget: React.FC = () => {
       console.error('I swear it worked on my machine');
       console.error('Error sending message:', error);
       toast.error('Failed to send message. Please try again.', {});
+    } finally {
+      setIsLoading(false); 
     }
-
     // console.log(messages)
   };
+
 
   const handlePromptClick = (prompt: string) => {
     sendMessage(prompt);
@@ -492,11 +496,13 @@ const ChatWidget: React.FC = () => {
                       </Icon>
                     </>
                   ) : (
+
                       <MessageContent>{message.content}</MessageContent>
                     )}
                   </MessageBubble>
                    )}
                 </MessageContainer>
+
 
                 {!message.is_user_message && message.id === lastAssistantMessageId && currentPrompts.length > 0 && (
                   <PromptContainer>
