@@ -47,7 +47,8 @@ import {
     HoverActionsContainer,
     PromptContainer,
     PromptButton,
-    EditInput
+    EditInput,
+    DeletedMessageBubble 
   } from './StyledComponents';
 
   interface Message {
@@ -55,6 +56,7 @@ import {
     content: string;
     is_user_message: boolean;
     created_at: string;
+    is_deleted?: boolean;
   }
 
 const ChatWidget: React.FC = () => {
@@ -242,7 +244,10 @@ const ChatWidget: React.FC = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      setMessages(prevMessages => prevMessages.filter(msg => msg.id !== messageId));
+      // setMessages(prevMessages => prevMessages.filter(msg => msg.id !== messageId));
+      setMessages(prevMessages => prevMessages.map(msg => 
+        msg.id === messageId ? { ...msg, is_deleted: true } : msg
+      ));
     } catch (error) {
       console.error('Error deleting message:', error);
       toast.error('Failed to delete message. Please try again.', {});
@@ -409,7 +414,7 @@ const ChatWidget: React.FC = () => {
                     <AssistantProfilePic src={ava} alt="Ava" />
                   )}
 
-                  {message.is_user_message && hoveredMessageId === message.id && (
+                  {message.is_user_message && hoveredMessageId === message.id && !message.is_deleted && (
                     <HoverActionsContainer>
                       <Tooltip content="Edit">
                         <Icon as="button" onClick={() => handleEditClick(message.id, message.content)} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 5 }}>
@@ -424,49 +429,55 @@ const ChatWidget: React.FC = () => {
                     </HoverActionsContainer>
                   )}
 
-                  <MessageBubble role={message.is_user_message ? 'user' : 'assistant'}>
-                    {editingMessageId === message.id ? (
-                      <>
-                        <EditInput
-                          type="text"
-                          value={editedContent}
-                          onChange={(e) => setEditedContent(e.target.value)}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              handleEditSave();
-                            }
-                          }}
-                        />
-                        <Icon
-                          as="button"
-                          onClick={handleEditSave}
-                          style={{ 
-                            cursor:'pointer', 
-                            background: 'none', 
-                            border: 'none', 
-                            padding: 0 
-                          }}
-                        >
-                          <Check />
-                        </Icon>
-                        <Icon
-                          as="button"
-                          onClick={handleEditCancel}
-                          style={{ 
-                            cursor:'pointer', 
-                            background: 'none', 
-                            border: 'none', 
-                            padding: 0,
-                            color: '#fff'
-                          }}
-                        >
-                          <XWhite />
-                        </Icon>
-                      </>
-                    ) : (
+              {message.is_deleted ? (
+                <DeletedMessageBubble role={message.is_user_message ? 'user' : 'assistant'}>
+                  Deleted message
+                </DeletedMessageBubble>
+              ) : (
+                <MessageBubble role={message.is_user_message ? 'user' : 'assistant'}>
+                  {editingMessageId === message.id ? (
+                    <>
+                      <EditInput
+                        type="text"
+                        value={editedContent}
+                        onChange={(e) => setEditedContent(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            handleEditSave();
+                          }
+                        }}
+                      />
+                      <Icon
+                        as="button"
+                        onClick={handleEditSave}
+                        style={{ 
+                          cursor:'pointer', 
+                          background: 'none', 
+                          border: 'none', 
+                          padding: 0 
+                        }}
+                      >
+                        <Check />
+                      </Icon>
+                      <Icon
+                        as="button"
+                        onClick={handleEditCancel}
+                        style={{ 
+                          cursor:'pointer', 
+                          background: 'none', 
+                          border: 'none', 
+                          padding: 0,
+                          color: '#fff'
+                        }}
+                      >
+                        <XWhite />
+                      </Icon>
+                    </>
+                  ) : (
                       <MessageContent>{message.content}</MessageContent>
                     )}
                   </MessageBubble>
+                   )}
                 </MessageContainer>
 
                 {!message.is_user_message && message.id === lastAssistantMessageId && currentPrompts.length > 0 && (

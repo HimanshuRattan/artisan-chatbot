@@ -266,3 +266,15 @@ export const EditInput = styled.input`
     outline: none;
   }
 `;
+
+
+export const DeletedMessageBubble = styled.div`
+  background-color: #f0f0f0;
+  color: #888;
+  padding: 10px 15px;
+  border-radius: 18px;
+  font-style: italic;
+  max-width: 80%;
+  margin: 5px 0;
+  align-self: ${props => props.role === 'user' ? 'flex-end' : 'flex-start'};
+`;
