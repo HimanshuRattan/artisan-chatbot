@@ -57,6 +57,7 @@ import {
     is_user_message: boolean;
     created_at: string;
     is_deleted?: boolean;
+    updated_at?: string;
   }
 
 const ChatWidget: React.FC = () => {
@@ -193,10 +194,11 @@ const ChatWidget: React.FC = () => {
       }
       
       const data: Message = await response.json();
+      console.log(data);
       setMessages(prevMessages => [
         ...prevMessages,
         {
-          id: Date.now(),
+          id: data.id-1,
           content: content,
           is_user_message: true,
           created_at: new Date().toISOString()
@@ -206,13 +208,14 @@ const ChatWidget: React.FC = () => {
       setInputMessage('');
       setLastAssistantMessageId(data.id);
       generateNewPrompts();
+      console.log(messages);
     } catch (error) {
       console.error('I swear it worked on my machine');
       console.error('Error sending message:', error);
       toast.error('Failed to send message. Please try again.', {});
     }
 
-    console.log(messages)
+    // console.log(messages)
   };
 
   const handlePromptClick = (prompt: string) => {
@@ -231,6 +234,7 @@ const ChatWidget: React.FC = () => {
   }, [messages, generateNewPrompts]);
 
   const deleteMessage = async (messageId: number) => {
+    console.log(messageId)
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:8000/messages/${messageId}`, {
@@ -289,6 +293,8 @@ const ChatWidget: React.FC = () => {
 
   //edit message functions
   const handleEditClick = (messageId: number, content: string) => {
+    console.log(messageId);
+    console.log(messages);
     setEditingMessageId(messageId);
     setEditedContent(content);
   };
@@ -300,6 +306,8 @@ const ChatWidget: React.FC = () => {
 
   const handleEditSave = async () => {
     if (!editingMessageId) return;
+
+    console.log(editingMessageId);
 
     try {
       const token = localStorage.getItem('token');
@@ -316,14 +324,24 @@ const ChatWidget: React.FC = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const updatedMessage = await response.json();
-      setMessages(prevMessages =>
-        prevMessages.map(msg =>
-          msg.id === editingMessageId ? updatedMessage : msg
-        )
+      //this took so much time :/
+      const updatedMessage: Message[] = await response.json();
+      console.log(updatedMessage)
+      setMessages(prevMessages => 
+        prevMessages.map(prevMsg => {
+          // Find the updated message in the array of updatedMessages
+          const updatedMsg = updatedMessage.find(msg => msg.id === prevMsg.id);
+          
+          // update the msg with the smae id
+          return updatedMsg 
+            ? { ...prevMsg, content: updatedMsg.content } 
+            : prevMsg;
+        })
       );
+
       setEditingMessageId(null);
       setEditedContent('');
+      toast.success('Message updated successfully!');
     } catch (error) {
       console.error('Error updating message:', error);
       toast.error('Failed to update message. Please try again.', {});

@@ -48,6 +48,9 @@ class UserCreate(BaseModel):
     username: str
     password: str
 
+class MessageUpdate(BaseModel):
+    content: str
+
 def get_db():
     db = SessionLocal()
     try:
@@ -171,7 +174,12 @@ async def get_messages(current_user: User = Depends(get_current_user), db: Sessi
     if not conversation:
         return []
     messages = db.query(Message).filter(Message.conversation_id == conversation.id, Message.is_deleted == False).order_by(Message.created_at).all()
-    return messages
+    return [MessageResponse(
+        id=message.id,
+        content=message.content,
+        is_user_message=message.is_user_message,
+        created_at=message.created_at
+    ) for message in messages]
 
 
 #Generates an initial greeting message
@@ -210,18 +218,81 @@ async def get_initial_message(current_user: User = Depends(get_current_user), db
 
 
 # Allows updating specific messages
-@app.put("/messages/{message_id}")
-async def update_message(message_id: int, message: MessageCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    db_message = db.query(Message).filter(Message.id == message_id).first()
-    if not db_message or db_message.conversation.user_id != current_user.id:
+@app.put("/messages/{message_id}", response_model=List[MessageResponse])
+async def update_message(
+    message_id: int, 
+    message: MessageUpdate, 
+    current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    # Find the user message
+    user_message = db.query(Message).filter(Message.id == message_id).first()
+    if not user_message or user_message.conversation.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Message not found")
-    if not db_message.is_user_message:
+    if not user_message.is_user_message:
         raise HTTPException(status_code=400, detail="Can only edit user messages")
-    db_message.content = message.content
-    db_message.updated_at = datetime.utcnow()
+    
+    # Update the user message
+    user_message.content = message.content
+    user_message.updated_at = datetime.utcnow()
+    
+    # Find the AI reply (next message in the conversation)
+    ai_reply = db.query(Message).filter(
+        Message.conversation_id == user_message.conversation_id,
+        Message.id > user_message.id,
+        Message.is_user_message == False
+    ).first()
+    
+    if ai_reply:
+        # Fetch the conversation context
+        conversation = db.query(Message).filter(
+            Message.conversation_id == user_message.conversation_id,
+            Message.id <= ai_reply.id
+        ).order_by(Message.id).all()
+        
+        # Prepare messages for OpenAI API
+        openai_messages = [{"role": "system", "content": "You are a helpful assistant named Ava."}]
+        for msg in conversation:
+            role = "user" if msg.is_user_message else "assistant"
+            openai_messages.append({"role": role, "content": msg.content})
+        
+        # Generate new AI response
+        try:
+            response = openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=openai_messages
+            )
+            new_ai_content = response.choices[0].message.content
+            
+            # Update AI reply
+            ai_reply.content = new_ai_content
+            ai_reply.updated_at = datetime.utcnow()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    
     db.commit()
-    db.refresh(db_message)
-    return db_message
+    db.refresh(user_message)
+    if ai_reply:
+        db.refresh(ai_reply)
+    
+    print(user_message)
+    print(ai_reply)
+    
+    # Return both updated messages
+    return [
+        MessageResponse(
+            id=user_message.id,
+            content=user_message.content,
+            is_user_message=user_message.is_user_message,
+            created_at=user_message.created_at
+        ),
+        MessageResponse(
+            id=ai_reply.id,
+            content=ai_reply.content,
+            is_user_message=ai_reply.is_user_message,
+            created_at=ai_reply.created_at
+        ) if ai_reply else None
+    ]
 
 
 # Allows deleting specific messages
