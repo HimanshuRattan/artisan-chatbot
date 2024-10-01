@@ -142,6 +142,7 @@ const ChatWidget: React.FC = () => {
 
 
   const fetchInitialMessage = async () => {
+    console.log("🎉 Congratulations on the seed round 🎉");
   try {
     const token = localStorage.getItem('token');
     const response = await fetch('http://localhost:8000/initial-message', {
@@ -204,6 +205,7 @@ const ChatWidget: React.FC = () => {
       setLastAssistantMessageId(data.id);
       generateNewPrompts();
     } catch (error) {
+      console.error('I swear it worked on my machine');
       console.error('Error sending message:', error);
       toast.error('Failed to send message. Please try again.', {});
     }
@@ -264,12 +266,16 @@ const ChatWidget: React.FC = () => {
           'Authorization': `Bearer ${token}`
         }
       });
-
+  
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      setMessages([]);
+  
+      const initialMessage: Message = await response.json();
+      setMessages([initialMessage]);
+      setLastAssistantMessageId(initialMessage.id);
+      generateNewPrompts();
+      toast.success('Chat has been reset successfully.');
     } catch (error) {
       console.error('Error resetting conversation:', error);
       toast.error('Failed to reset conversation. Please try again.', {});

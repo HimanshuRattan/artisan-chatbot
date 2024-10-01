@@ -1,5 +1,18 @@
 import React, { useState, FormEvent, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ReactComponent as Artisan } from './assets/artisan.svg';
+// import { useAuth } from './useAuth';
+
+import {
+  LoginContainer,
+  LoginForm,
+  Title,
+  InputGroup,
+  Label,
+  Input,
+  SubmitButton,
+  ErrorMessage
+} from './LoginStyled';
 
 interface LoginResponse {
   access_token: string;
@@ -13,13 +26,13 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
 
   const navigate = useNavigate();
+  // const { isAuthenticated, setIsAuthenticated } = useAuth();
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      navigate('/home');
-    }
-  }, [navigate]);
+  // useEffect(() => {
+  //   if (isAuthenticated) {
+  //     navigate('/home', { replace: true });
+  //   }
+  // }, [isAuthenticated, navigate]);
 
   const validateForm = (): boolean => {
     if (!username.trim() || !password.trim()) {
@@ -51,9 +64,11 @@ const Login: React.FC = () => {
       if (response.ok) {
         const data: LoginResponse = await response.json();
         localStorage.setItem('token', data.access_token);
-        navigate('/home');
+        navigate('/home')
+        // setIsAuthenticated(true);
       } else {
         const errorData = await response.json();
+        console.log("Just use the provided credentials please");
         throw new Error(errorData.detail || 'Authentication failed');
       }
     } catch (error) {
@@ -64,35 +79,35 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div>
-      <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="username">Username:</label>
-          <input
+    <LoginContainer>
+      <LoginForm onSubmit={handleSubmit}>
+        <Title><Artisan /></Title>
+        <InputGroup>
+          <Label htmlFor="username">Username:</Label>
+          <Input
             id="username"
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
           />
-        </div>
-        <div>
-          <label htmlFor="password">Password:</label>
-          <input
+        </InputGroup>
+        <InputGroup>
+          <Label htmlFor="password">Password:</Label>
+          <Input
             id="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-        </div>
-        <button type="submit" disabled={loading}>
+        </InputGroup>
+        <SubmitButton type="submit" disabled={loading}>
           {loading ? 'Logging in...' : 'Login'}
-        </button>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-      </form>
-    </div>
+        </SubmitButton>
+        {error && <ErrorMessage>{error}</ErrorMessage>}
+      </LoginForm>
+    </LoginContainer>
   );
 };
 

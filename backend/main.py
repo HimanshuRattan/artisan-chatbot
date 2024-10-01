@@ -236,6 +236,47 @@ async def delete_message(message_id: int, current_user: User = Depends(get_curre
     db.commit()
     return {"detail": "Message deleted"}
 
+
+#reset chat and fetch initial message again
+@app.post("/reset-conversation")
+async def reset_conversation(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Delete all messages for the user's conversation
+    conversation = db.query(Conversation).filter(Conversation.user_id == current_user.id).first()
+    if conversation:
+        db.query(Message).filter(Message.conversation_id == conversation.id).delete()
+        db.delete(conversation)
+        db.commit()
+
+    # Create a new conversation
+    new_conversation = Conversation(user_id=current_user.id)
+    db.add(new_conversation)
+    db.commit()
+    db.refresh(new_conversation)
+
+    # Generate and add initial message
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant named Ava. Greet the user and ask how you can help them today."}
+            ]
+        )
+        ai_content = response.choices[0].message.content
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    initial_message = Message(conversation_id=new_conversation.id, content=ai_content, is_user_message=False)
+    db.add(initial_message)
+    db.commit()
+    db.refresh(initial_message)
+
+    return MessageResponse(
+        id=initial_message.id,
+        content=initial_message.content,
+        is_user_message=initial_message.is_user_message,
+        created_at=initial_message.created_at
+    )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
