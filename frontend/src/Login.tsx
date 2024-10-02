@@ -1,7 +1,6 @@
 import React, { useState, FormEvent, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ReactComponent as Artisan } from './assets/artisan.svg';
-// import { useAuth } from './useAuth';
 
 import {
   LoginContainer,
@@ -12,7 +11,7 @@ import {
   Input,
   SubmitButton,
   ErrorMessage
-} from './LoginStyled';
+} from './styles/LoginStyled';
 
 interface LoginResponse {
   access_token: string;
@@ -26,13 +25,7 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
 
   const navigate = useNavigate();
-  // const { isAuthenticated, setIsAuthenticated } = useAuth();
 
-  // useEffect(() => {
-  //   if (isAuthenticated) {
-  //     navigate('/home', { replace: true });
-  //   }
-  // }, [isAuthenticated, navigate]);
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -59,7 +52,7 @@ const Login: React.FC = () => {
     formDetails.append('password', password);
 
     try {
-      const response = await fetch('http://localhost:8000/token', {
+      const response = await fetch('http://localhost:8000/api/v1/token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',

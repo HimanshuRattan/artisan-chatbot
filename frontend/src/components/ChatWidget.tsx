@@ -1,28 +1,24 @@
 import React, { useState, useEffect, useCallback  } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ReactComponent as MessageCircleIcon } from './assets/message-circle.svg';
-import { ReactComponent as XIcon } from './assets/x.svg';
-import { ReactComponent as XWhite } from './assets/xwhite.svg';
-import { ReactComponent as Maximize } from './assets/maximize-2.svg';
-import { ReactComponent as Minimize } from './assets/minimize-2.svg';
-import { ReactComponent as Sidebar } from './assets/sidebar.svg';
-import { ReactComponent as Send } from './assets/send.svg';
-import { ReactComponent as Settings } from './assets/settings.svg';
-import profilePic from './assets/profile.png';
-import ava from './assets/ava.png';
-import waveImage from './assets/wave.png';
-import { ReactComponent as RefreshIcon } from './assets/refresh-cw.svg';
-import { ReactComponent as ChevronIcon } from './assets/down.svg';
-import { ReactComponent as EditIcon } from './assets/edit.svg';
-import { ReactComponent as TrashIcon } from './assets/trash-2.svg';
-import { ReactComponent as Check } from './assets/check.svg';
+import { ReactComponent as MessageCircleIcon } from '../assets/message-circle.svg';
+import { ReactComponent as XWhite } from '../assets/xwhite.svg';
+import { ReactComponent as Send } from '../assets/send.svg';
+import { ReactComponent as Settings } from '../assets/settings.svg';
+import profilePic from '../assets/profile.png';
+import ava from '../assets/ava.png';
+import waveImage from '../assets/wave.png';
+import { ReactComponent as RefreshIcon } from '../assets/refresh-cw.svg';
+import { ReactComponent as ChevronIcon } from '../assets/down.svg';
+import { ReactComponent as EditIcon } from '../assets/edit.svg';
+import { ReactComponent as TrashIcon } from '../assets/trash-2.svg';
+import { ReactComponent as Check } from '../assets/check.svg';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import ChatHeader  from '../components/ChatHeader';
 
 import {
     WidgetButton,
     ChatWindow,
-    ChatHeader,
     ChatBody,
     ChatInput,
     IconContainer,
@@ -50,7 +46,7 @@ import {
     EditInput,
     DeletedMessageBubble,
     LoadingIndicator
-  } from './StyledComponents';
+  } from '../styles/StyledComponents';
 
   interface Message {
     id: number;
@@ -84,34 +80,14 @@ const ChatWidget: React.FC = () => {
     }
   }, [isOpen]);
 
-  // useEffect(() => {
-  //   if (!isInitialized) {
-  //     initializeChat();
-  //   }
-  // }, []);
 
-  const initializeChat = async () => {
-    await fetchConversation();
-    if (messages.length === 0) {
-      await fetchInitialMessage();
-    }
-    setIsInitialized(true);
-  };
-
+  //reset button to delete chat 
   useEffect(() => {
     setShowResetButton(messages.some(message => message.is_user_message === true));
   }, [messages]);
 
-  const toggleFullScreen = useCallback(() => {
-    if (!isMobile) {
-      setIsFullScreen(!isFullScreen);
-    }
-  }, [isMobile, isFullScreen]);
 
-  // useEffect(() => {
-  //   setShowResetButton(messages.some(message => message.role === 'user'));
-  // }, [messages]);
-
+  //resiz for mobile
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -125,10 +101,25 @@ const ChatWidget: React.FC = () => {
   }, []);
 
 
+  //fetch initial message
+  const initializeChat = async () => {
+    await fetchConversation();
+    if (messages.length === 0) {
+      await fetchInitialMessage();
+    }
+    setIsInitialized(true);
+  };
+
+  const toggleFullScreen = useCallback(() => {
+    if (!isMobile) {
+      setIsFullScreen(!isFullScreen);
+    }
+  }, [isMobile, isFullScreen]);
+
   const fetchConversation = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/messages', {
+      const response = await fetch('http://localhost:8000/api/v1/messages', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -146,10 +137,9 @@ const ChatWidget: React.FC = () => {
 
 
   const fetchInitialMessage = async () => {
-    console.log("🎉 Congratulations on the seed round 🎉");
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch('http://localhost:8000/initial-message', {
+    const response = await fetch('http://localhost:8000/api/v1/initial-message', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -165,6 +155,8 @@ const ChatWidget: React.FC = () => {
   }
 };
 
+
+//new random prompts
   const generateNewPrompts = useCallback(() => {
     const prompts = [
       'Tell a Joke', 'Ask a Riddle', 'Give a Fun Fact', 'What is AI', 'What is a BDR'
@@ -194,7 +186,7 @@ const ChatWidget: React.FC = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/chat', {
+      const response = await fetch('http://localhost:8000/api/v1/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -208,7 +200,7 @@ const ChatWidget: React.FC = () => {
       }
       
       const data: Message = await response.json();
-      console.log(data);
+      // console.log(data);
 
       // Update messages, replacing the temporary message and adding the response
       setMessages(prevMessages => [
@@ -224,7 +216,6 @@ const ChatWidget: React.FC = () => {
 
       setLastAssistantMessageId(data.id);
       generateNewPrompts();
-      console.log(messages);
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message. Please try again.', {});
@@ -232,7 +223,7 @@ const ChatWidget: React.FC = () => {
       // Remove the temporary message if there's an error
       setMessages(prevMessages => prevMessages.filter(msg => msg.id !== tempMessage.id));
     }
-    console.log(messages)
+    // console.log(messages)
   };
 
   const handlePromptClick = (prompt: string) => {
@@ -254,7 +245,7 @@ const ChatWidget: React.FC = () => {
     console.log(messageId)
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8000/messages/${messageId}`, {
+      const response = await fetch(`http://localhost:8000/api/v1/messages/${messageId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -286,7 +277,7 @@ const ChatWidget: React.FC = () => {
   const resetChat = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/reset-conversation', {
+      const response = await fetch('http://localhost:8000/api/v1/reset-conversation', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -328,7 +319,7 @@ const ChatWidget: React.FC = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8000/messages/${editingMessageId}`, {
+      const response = await fetch(`http://localhost:8000/api/v1/messages/${editingMessageId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -365,8 +356,6 @@ const ChatWidget: React.FC = () => {
     }
   };
 
-
-
   const getChatWindowStyle = useCallback(() => {
     if (isMobile) {
       return {
@@ -400,41 +389,31 @@ const ChatWidget: React.FC = () => {
       <ToastContainer position="top-right" autoClose={5000} hideProgressBar={false} 
                       closeOnClick pauseOnHover draggable 
                       theme="colored" />
+      
       <AnimatePresence>
         {isOpen && (
+          
           <ChatWindow
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
-          style={getChatWindowStyle()}
-        >
-            <ChatHeader>
-              <IconContainer>
-              {!isMobile && (
-                    <Icon as="button" onClick={toggleFullScreen} style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}>
-                      {isFullScreen ? <Minimize /> : <Maximize />}
-                    </Icon>
-                )}
-                <Icon>
-                  <Sidebar />
-                </Icon>
-              </IconContainer>
-              <Icon 
-                as="button"
-                onClick={toggleChat} 
-                style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}>
-                <XIcon />
-              </Icon>
-            </ChatHeader>
+          style={getChatWindowStyle()}>
+            
+            <ChatHeader 
+              isFullScreen={isFullScreen}
+              toggleFullScreen={toggleFullScreen}
+              toggleChat={() => setIsOpen(false)}
+              isMobile={isMobile}
+            />
 
             <ChatBody>
 
-            <IntroContainer>
-                  <ProfileImage src={ava} alt="Profile" />
-                  <Greeting>
-                    Hey <WaveImage src={waveImage} alt="Wave" />, I'm Ava
-                  </Greeting>
-                  <AskAnything>Ask me anything or pick a place to start</AskAnything>
+                <IntroContainer>
+                    <ProfileImage src={ava} alt="Profile" />
+                    <Greeting>
+                        Hey <WaveImage src={waveImage} alt="Wave" />, I'm Ava
+                    </Greeting>
+                    <AskAnything>Ask me anything or pick a place to start</AskAnything>
                 </IntroContainer>
 
                 {messages.map((message, index) => (
@@ -445,6 +424,7 @@ const ChatWidget: React.FC = () => {
                   onMouseEnter={() => setHoveredMessageId(message.id)}
                   onMouseLeave={() => setHoveredMessageId(null)}
                 >
+                  
                   {!message.is_user_message && (
                     <AssistantProfilePic src={ava} alt="Ava" />
                   )}
@@ -464,12 +444,12 @@ const ChatWidget: React.FC = () => {
                     </HoverActionsContainer>
                   )}
 
-              {message.is_deleted ? (
-                <DeletedMessageBubble role={message.is_user_message ? 'user' : 'assistant'}>
-                  Deleted message
-                </DeletedMessageBubble>
-              ) : (
-                <MessageBubble role={message.is_user_message ? 'user' : 'assistant'}>
+                {message.is_deleted ? (
+                  <DeletedMessageBubble role={message.is_user_message ? 'user' : 'assistant'}>
+                    Deleted message
+                  </DeletedMessageBubble>
+                ) : (
+                  <MessageBubble role={message.is_user_message ? 'user' : 'assistant'}>
                   {editingMessageId === message.id ? (
                     <>
                       <EditInput
@@ -483,28 +463,14 @@ const ChatWidget: React.FC = () => {
                         }}
                       />
                       <Icon
-                        as="button"
-                        onClick={handleEditSave}
-                        style={{ 
-                          cursor:'pointer', 
-                          background: 'none', 
-                          border: 'none', 
-                          padding: 0 
-                        }}
-                      >
+                        as="button" onClick={handleEditSave}
+                        style={{  cursor:'pointer',  background: 'none',  border: 'none', padding: 0 }}>
                         <Check />
                       </Icon>
+
                       <Icon
-                        as="button"
-                        onClick={handleEditCancel}
-                        style={{ 
-                          cursor:'pointer', 
-                          background: 'none', 
-                          border: 'none', 
-                          padding: 0,
-                          color: '#fff'
-                        }}
-                      >
+                        as="button" onClick={handleEditCancel}
+                        style={{  cursor:'pointer', background: 'none', border: 'none',  padding: 0, color: '#fff' }}>
                         <XWhite />
                       </Icon>
                     </>
@@ -512,11 +478,10 @@ const ChatWidget: React.FC = () => {
 
                     <>
                     <MessageContent>{message.content}</MessageContent>
-                    
-                  </>
+                    </>
                 )}
                   </MessageBubble>
-                   )}
+                )}
                 </MessageContainer>
                 {message.is_loading && (
                       <LoadingIndicator>
@@ -525,7 +490,6 @@ const ChatWidget: React.FC = () => {
                         <div></div>
                       </LoadingIndicator>
                     )}
-
 
                 {!message.is_user_message && message.id === lastAssistantMessageId && currentPrompts.length > 0 && (
                   <PromptContainer>
@@ -537,9 +501,8 @@ const ChatWidget: React.FC = () => {
                   </PromptContainer>
                 )}
               </React.Fragment>
-
-                
               ))}
+
             </ChatBody>
             
             <BorderLine />
@@ -561,7 +524,6 @@ const ChatWidget: React.FC = () => {
             <Footer>
             <FooterText>
               <span>Context</span>
-
                 <SelectWrapper>
                     <StyledSelect value={selectedRole} onChange={handleRoleChange}>
                     <option value="Onboarding">Onboarding</option>
@@ -590,12 +552,7 @@ const ChatWidget: React.FC = () => {
                   onClick={() => {
                       sendMessage(inputMessage);
                   }}
-                  style={{ 
-                    cursor:'pointer', 
-                    background: 'none', 
-                    border: 'none', 
-                    padding: 0 
-                  }}>
+                  style={{  cursor:'pointer',  background: 'none',  border: 'none',  padding: 0 }}>
                   <Send />
                 </Icon>
               </IconContainer>

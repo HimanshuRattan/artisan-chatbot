@@ -18,7 +18,7 @@ function ProtectedRoute() {
 
 
       try {
-        const response = await fetch('http://localhost:8000/verify-token', {
+        const response = await fetch('http://localhost:8000/api/v1/verify-token', {
           headers: {
             'Authorization': `Bearer ${token}`
           }
