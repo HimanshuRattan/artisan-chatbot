@@ -49,7 +49,7 @@ import {
     PromptButton,
     EditInput,
     DeletedMessageBubble,
-    // LoadingDots
+    LoadingIndicator
   } from './StyledComponents';
 
   interface Message {
@@ -59,6 +59,7 @@ import {
     created_at: string;
     is_deleted?: boolean;
     updated_at?: string;
+    is_loading?: boolean;
   }
 
 const ChatWidget: React.FC = () => {
@@ -172,14 +173,25 @@ const ChatWidget: React.FC = () => {
     setCurrentPrompts(newPrompts);
   }, []);
 
+
   const sendMessage = async (content: string) => {
     if (content.trim() === '') {
       toast.warn('Please enter a message before sending.', {});
       return;
     }
 
-    setIsLoading(true);
-  
+    // Create a temporary message with loading state
+    const tempMessage: Message = {
+      id: Date.now(),  // Temporary ID
+      content: content,
+      is_user_message: true,
+      created_at: new Date().toISOString(),
+      is_loading: true
+    };
+
+    setMessages(prevMessages => [...prevMessages, tempMessage]);
+    setInputMessage('');
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:8000/chat', {
@@ -197,30 +209,31 @@ const ChatWidget: React.FC = () => {
       
       const data: Message = await response.json();
       console.log(data);
+
+      // Update messages, replacing the temporary message and adding the response
       setMessages(prevMessages => [
-        ...prevMessages,
+        ...prevMessages.filter(msg => msg.id !== tempMessage.id),
         {
-          id: data.id-1,
+          id: data.id - 1,
           content: content,
           is_user_message: true,
           created_at: new Date().toISOString()
         },
         data
       ]);
-      setInputMessage('');
+
       setLastAssistantMessageId(data.id);
       generateNewPrompts();
       console.log(messages);
     } catch (error) {
-      console.error('I swear it worked on my machine');
       console.error('Error sending message:', error);
       toast.error('Failed to send message. Please try again.', {});
-    } finally {
-      setIsLoading(false); 
+      
+      // Remove the temporary message if there's an error
+      setMessages(prevMessages => prevMessages.filter(msg => msg.id !== tempMessage.id));
     }
-    // console.log(messages)
+    console.log(messages)
   };
-
 
   const handlePromptClick = (prompt: string) => {
     sendMessage(prompt);
@@ -497,11 +510,21 @@ const ChatWidget: React.FC = () => {
                     </>
                   ) : (
 
-                      <MessageContent>{message.content}</MessageContent>
-                    )}
+                    <>
+                    <MessageContent>{message.content}</MessageContent>
+                    
+                  </>
+                )}
                   </MessageBubble>
                    )}
                 </MessageContainer>
+                {message.is_loading && (
+                      <LoadingIndicator>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                      </LoadingIndicator>
+                    )}
 
 
                 {!message.is_user_message && message.id === lastAssistantMessageId && currentPrompts.length > 0 && (

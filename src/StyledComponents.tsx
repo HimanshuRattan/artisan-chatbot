@@ -1,4 +1,5 @@
 import styled from '@emotion/styled';
+import { keyframes } from '@emotion/react'; 
 import { motion } from 'framer-motion';
 
 export const WidgetButton = styled(motion.button)`
@@ -279,18 +280,32 @@ export const DeletedMessageBubble = styled.div`
   align-self: ${props => props.role === 'user' ? 'flex-end' : 'flex-start'};
 `;
 
-// export const LoadingDots = styled.div`
-//   display: flex;
-//   justify-content: center;
-//   align-items: center;
-//   height: 20px;
+const loadingAnimation = keyframes`
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1.0); }
+`;
 
-//   span {
-//     background-color: #8442FF;
-//     border-radius: 50%;
-//     display: inline-block;
-//     margin: 0 3px;
-//     height: 6px;
-//     width: 6px;
-//   }
-// `;
+export const LoadingIndicator = styled.div`
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  margin-left: 10px;
+
+  div {
+    width: 8px;
+    height: 8px;
+    margin: 0 2px;
+    background-color: ${props => props.theme === 'user' ? '#fff' : '#8E2DE2'};
+    border-radius: 50%;
+    display: inline-block;
+    animation: ${loadingAnimation} 1.4s infinite ease-in-out both;
+
+    &:nth-of-type(1) {
+      animation-delay: -0.32s;
+    }
+
+    &:nth-of-type(2) {
+      animation-delay: -0.16s;
+    }
+  }
+`;
