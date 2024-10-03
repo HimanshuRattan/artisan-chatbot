@@ -1,7 +1,6 @@
 *.pyc
 build/
 backend/__pycache__/
-backend/test.db
 backend/venv/
 frontend/node_modules/
 backend/app/__pycache__
@@ -87,7 +86,7 @@ Thumbs.db
 
 # Database
 *.sqlite3
-*.db
+# *.db
 
 # Logs
 logs
